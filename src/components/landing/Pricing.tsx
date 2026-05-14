@@ -4,15 +4,15 @@ import { Check } from "lucide-react";
 const plans = [
   {
     name: "Starter",
-    price: "R$ 2.490",
-    period: "/projeto",
+    price: "Sob medida",
+    period: "",
     desc: "Ideal para validar uma automação ou rodar uma primeira campanha.",
     features: ["1 frente de trabalho", "Entrega em até 3 semanas", "Suporte por 30 dias", "Reuniões quinzenais"],
   },
   {
     name: "Growth",
-    price: "R$ 6.900",
-    period: "/mês",
+    price: "Sob medida",
+    period: "",
     desc: "Para empresas que querem evoluir produto, operação e aquisição em paralelo.",
     features: ["Até 2 frentes ativas", "Squad dedicado", "Dashboard de performance", "Reuniões semanais", "Iterações contínuas"],
     highlight: true,
