@@ -6,15 +6,15 @@ const plans = [
     name: "Starter",
     price: "Sob medida",
     period: "",
-    desc: "Ideal para validar uma automação ou rodar uma primeira campanha.",
-    features: ["1 frente de trabalho", "Entrega em até 3 semanas", "Suporte por 30 dias", "Reuniões quinzenais"],
+    desc: "Ideal para montar uma automação ou rodar uma primeira campanha.",
+    features: ["Uma equipe compartilhada para o seu projeto", "Até 1 serviço mensal ativo", "Contrato mínimo de 3 meses", "Reuniões de alinhamento mensais"],
   },
   {
     name: "Growth",
     price: "Sob medida",
     period: "",
     desc: "Para empresas que querem evoluir produto, operação e aquisição em paralelo.",
-    features: ["Até 2 frentes ativas", "Squad dedicado", "Dashboard de performance", "Reuniões semanais", "Iterações contínuas"],
+    features: ["Uma equipe compartilhada para o seu projeto", "Até 2 serviços mensais ativos simultaneamente", "Contrato mínimo de 3 meses", "Reuniões de alinhamento mensais"],
     highlight: true,
   },
   {
@@ -22,7 +22,7 @@ const plans = [
     price: "Sob medida",
     period: "",
     desc: "Operação completa para quem precisa escalar agora, com SLA e prioridade total.",
-    features: ["Frentes ilimitadas", "Time sênior dedicado", "SLA de resposta", "Roadmap trimestral", "Integrações complexas"],
+    features: ["Uma equipe exclusiva dedicada full-time ao seu projeto", "Múltiplos serviços simultâneos", "Reuniões de alinhamento quinzenais"],
   },
 ];
 
