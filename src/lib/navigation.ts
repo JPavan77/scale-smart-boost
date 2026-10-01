@@ -2,19 +2,22 @@ const rawBase = import.meta.env.BASE_URL || "/";
 
 export const appBase = rawBase === "/" ? "" : rawBase.replace(/\/$/, "");
 
-export function appHref(path = "/") {
+export function buildAppHref(path = "/", base = appBase) {
   if (/^https?:\/\//i.test(path) || path.startsWith("mailto:") || path.startsWith("tel:")) return path;
   if (path.startsWith("#")) return path;
 
   const normalized = path.startsWith("/") ? path : `/${path}`;
 
-  // GitHub Pages serves the app under /scale-smart-boost/.
-  // Hash routing avoids stale/path-level redirects and static-host 404s.
-  if (appBase) {
-    return normalized === "/" ? `${appBase}/` : `${appBase}/#${normalized}`;
+  if (base) {
+    const normalizedBase = base.replace(/\/$/, "");
+    return normalized === "/" ? `${normalizedBase}/` : `${normalizedBase}/#${normalized}`;
   }
 
   return normalized;
+}
+
+export function appHref(path = "/") {
+  return buildAppHref(path, appBase);
 }
 
 export function currentAppPath() {
