@@ -20,10 +20,21 @@ export async function toggleBusiness(id:string,is_active:boolean){ if(!supabase)
 export async function saveCategory(input:Partial<Category>&{business_id:string;name:string}){ if(!supabase)return; const query=input.id?supabase.from("categories").update(input).eq("id",input.id):supabase.from("categories").insert(input); const {error}=await query; if(error)throw error; }
 export async function deleteCategory(id:string){ if(!supabase)return; const {error}=await supabase.from("categories").delete().eq("id",id); if(error)throw error; }
 export async function saveItem(input:Partial<CatalogItem>&{business_id:string;name:string},variants:{name:string;price:number|null}[]){
- if(!supabase)return; const payload:any={...input}; delete payload.category; delete payload.variants; let itemId=input.id;
- if(itemId){ const {error}=await supabase.from("items").update(payload).eq("id",itemId); if(error)throw error; await supabase.from("item_variants").delete().eq("item_id",itemId); }
- else { const {data,error}=await supabase.from("items").insert(payload).select("id").single(); if(error)throw error; itemId=data.id; }
- if(variants.length){ const {error}=await supabase.from("item_variants").insert(variants.map(v=>({...v,item_id:itemId}))); if(error)throw error; }
+ if(!supabase)return;
+ const {error}=await supabase.rpc("save_catalog_item",{
+   _id: input.id??null,
+   _business_id: input.business_id,
+   _name: input.name,
+   _description: input.description??"",
+   _price: input.price??null,
+   _duration_minutes: input.duration_minutes??null,
+   _category_id: input.category_id??null,
+   _image_url: input.image_url??"",
+   _is_active: input.is_active??true,
+   _sort_order: input.sort_order??0,
+   _variants: variants
+ });
+ if(error)throw error;
 }
 export async function deleteItem(id:string){ if(!supabase)return; const {error}=await supabase.from("items").delete().eq("id",id); if(error)throw error; }
 export async function uploadCatalogImage(file:File,businessId:string){ if(!supabase) return URL.createObjectURL(file); const ext=file.name.split(".").pop()||"jpg"; const path=businessId+"/"+crypto.randomUUID()+"."+ext; const {error}=await supabase.storage.from(catalogBucket).upload(path,file,{upsert:false}); if(error)throw error; const {data}=supabase.storage.from(catalogBucket).getPublicUrl(path); return data.publicUrl; }
