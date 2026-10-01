@@ -8,7 +8,17 @@ test("homepage carrega e navega para catálogo real", async ({ page }) => {
   await expect(page.getByText("Corte clássico")).toBeVisible();
 });
 
-test("catálogo real adiciona item ao carrinho", async ({ page }) => {
+test("categorias filtram o catálogo", async ({ page }) => {
+  await page.goto("/barbearia-do-ze");
+  await expect(page.getByText("Corte clássico")).toBeVisible();
+  await page.getByRole("button", { name: /^Barba$/i }).click();
+  await expect(page.getByText("Barba completa")).toBeVisible();
+  await expect(page.getByText("Corte clássico")).toHaveCount(0);
+  await page.getByRole("button", { name: /^Todos$/i }).click();
+  await expect(page.getByText("Corte clássico")).toBeVisible();
+});
+
+test("catálogo real adiciona item e atualiza carrinho", async ({ page }) => {
   await page.goto("/barbearia-do-ze");
   const product = page.locator(".product").filter({ hasText: "Corte clássico" });
   await expect(product).toBeVisible();
@@ -21,6 +31,19 @@ test("catálogo real adiciona item ao carrinho", async ({ page }) => {
   await expect(cart.getByRole("button", { name: /Enviar pelo WhatsApp/i })).toBeEnabled();
 });
 
+test("quantidade pode aumentar e diminuir", async ({ page }) => {
+  await page.goto("/barbearia-do-ze");
+  const product = page.locator(".product").filter({ hasText: "Barba completa" });
+  await product.getByRole("button", { name: /Adicionar Barba completa/i }).click();
+
+  const cart = page.locator("aside.cart").first();
+  const line = cart.locator(".cart-line").filter({ hasText: "Barba completa" });
+  await line.locator(".qty button").nth(1).click();
+  await expect(line.locator(".qty")).toContainText("2");
+  await line.locator(".qty button").nth(0).click();
+  await expect(line.locator(".qty")).toContainText("1");
+});
+
 test("carrinho persiste por empresa", async ({ page }) => {
   await page.goto("/barbearia-do-ze");
   const product = page.locator(".product").filter({ hasText: "Barba completa" });
@@ -28,6 +51,37 @@ test("carrinho persiste por empresa", async ({ page }) => {
   await page.reload();
   const cart = page.locator("aside.cart").first();
   await expect(cart.getByText("Barba completa")).toBeVisible();
+});
+
+test("item sob consulta usa total parcial", async ({ page }) => {
+  await page.goto("/barbearia-do-ze");
+  const product = page.locator(".product").filter({ hasText: "Dia do noivo" });
+  await expect(product.getByText("Sob consulta")).toBeVisible();
+  await product.getByRole("button", { name: /Adicionar Dia do noivo/i }).click();
+
+  const cart = page.locator("aside.cart").first();
+  await expect(cart.getByText("Total parcial")).toBeVisible();
+  await expect(cart.getByText(/valor sob consulta/i)).toBeVisible();
+});
+
+test("mensagem do WhatsApp contém itens, duração e total", async ({ page, context }) => {
+  await page.goto("/barbearia-do-ze");
+  const product = page.locator(".product").filter({ hasText: "Barba completa" });
+  await product.getByRole("button", { name: /Adicionar Barba completa/i }).click();
+
+  const cart = page.locator("aside.cart").first();
+  const popupPromise = context.waitForEvent("page");
+  await cart.getByRole("button", { name: /Enviar pelo WhatsApp/i }).click();
+  const popup = await popupPromise;
+  await popup.waitForLoadState("domcontentloaded").catch(() => {});
+
+  const url = popup.url();
+  expect(url).toContain("wa.me/5511999999999");
+  const decoded = decodeURIComponent(url);
+  expect(decoded).toContain("Barba completa");
+  expect(decoded).toContain("30 min");
+  expect(decoded).toContain("R$");
+  await popup.close();
 });
 
 test("login real carrega", async ({ page }) => {
