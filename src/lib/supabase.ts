@@ -1,6 +1,16 @@
 import { createClient } from "@supabase/supabase-js";
-const url = import.meta.env.VITE_SUPABASE_URL as string | undefined;
-const key = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY as string | undefined;
-export const cloudConfigured = Boolean(url && key);
-export const supabase = cloudConfigured ? createClient(url!, key!, { auth: { persistSession:true, autoRefreshToken:true, detectSessionInUrl:true } }) : null;
+
+const url = "https://jyhwqhhtcucdeoixkjvs.supabase.co";
+const key = "sb_publishable_5oU3evcIkLozGoQvtoZD_g_rg_hu9kE";
+
+export const cloudConfigured = true;
+
+export const supabase = createClient(url, key, {
+  auth: {
+    persistSession: true,
+    autoRefreshToken: true,
+    detectSessionInUrl: true,
+  },
+});
+
 export const catalogBucket = "catalog-images";
