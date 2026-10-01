@@ -5,20 +5,30 @@ test("homepage carrega e navega para a demo", async ({ page }) => {
   await expect(page.getByRole("heading", { name: /Seu negócio local com cara de marca grande/i })).toBeVisible();
   await page.getByRole("link", { name: /Abrir catálogo demo/i }).click();
   await expect(page).toHaveURL(/barbearia-do-ze/);
-  await expect(page.getByRole("heading", { name: /Cortes, barba e cuidado sem enrolação|Escolha/i })).toBeVisible();
+  await expect(page.getByText("Corte clássico")).toBeVisible();
 });
 
-test("catálogo adiciona item e monta carrinho", async ({ page }) => {
+test("catálogo adiciona item e atualiza carrinho desktop", async ({ page }) => {
   await page.goto("/barbearia-do-ze");
-  await expect(page.getByText("Corte clássico")).toBeVisible();
+  const product = page.locator(".product").filter({ hasText: "Corte clássico" });
+  await expect(product).toBeVisible();
+  await product.getByRole("button", { name: /Adicionar Corte clássico/i }).click();
 
-  const addButtons = page.getByRole("button", { name: /Adicionar/i });
-  await addButtons.first().click();
+  const cart = page.locator("aside.cart").first();
+  await expect(cart.getByRole("heading", { name: /Seu pedido/i })).toBeVisible();
+  await expect(cart.getByText("Corte clássico")).toBeVisible();
+  await expect(cart.getByText("R$ 45,00")).toBeVisible();
+  await expect(cart.getByRole("button", { name: /Enviar pelo WhatsApp/i })).toBeEnabled();
+});
 
-  await expect(page.getByText(/1 item/i)).toBeVisible();
-  await page.getByRole("button", { name: /Ver pedido/i }).click();
-  await expect(page.getByRole("heading", { name: /Seu pedido/i })).toBeVisible();
-  await expect(page.getByText("Corte clássico")).toBeVisible();
+test("carrinho persiste por empresa", async ({ page }) => {
+  await page.goto("/barbearia-do-ze");
+  const product = page.locator(".product").filter({ hasText: "Barba completa" });
+  await product.getByRole("button", { name: /Adicionar Barba completa/i }).click();
+  await page.reload();
+
+  const cart = page.locator("aside.cart").first();
+  await expect(cart.getByText("Barba completa")).toBeVisible();
 });
 
 test("login demo permite acessar painel", async ({ page }) => {
@@ -29,22 +39,26 @@ test("login demo permite acessar painel", async ({ page }) => {
   await expect(page.getByRole("heading", { name: /Seu catálogo/i })).toBeVisible();
 });
 
-test("painel do dono exibe dados e itens", async ({ page }) => {
+test("painel do dono exibe dados e abre cadastro de item", async ({ page }) => {
   await page.goto("/painel");
   await expect(page.getByRole("heading", { name: /Seu catálogo/i })).toBeVisible();
   await expect(page.getByText("Corte clássico")).toBeVisible();
-  await expect(page.getByRole("button", { name: /Novo item/i })).toBeVisible();
+  await page.getByRole("button", { name: /Novo item/i }).click();
+  await expect(page.getByText("Item do catálogo")).toBeVisible();
+  await expect(page.getByLabel("Nome")).toBeVisible();
 });
 
-test("admin abre e permite abrir cadastro de empresa", async ({ page }) => {
+test("admin abre e permite iniciar cadastro de empresa", async ({ page }) => {
   await page.goto("/admin");
   await expect(page.getByRole("heading", { name: /^Empresas$/i })).toBeVisible();
   await expect(page.getByText("Barbearia do Zé")).toBeVisible();
   await page.getByRole("button", { name: /Criar empresa/i }).click();
   await expect(page.getByText(/Cadastro da empresa/i)).toBeVisible();
+  await expect(page.getByLabel("Nome")).toBeVisible();
+  await expect(page.getByLabel(/Link/)).toBeVisible();
 });
 
-test("rota inexistente cai no catálogo indisponível", async ({ page }) => {
+test("rota inexistente mostra catálogo indisponível", async ({ page }) => {
   await page.goto("/empresa-que-nao-existe");
   await expect(page.getByRole("heading", { name: /Catálogo temporariamente indisponível/i })).toBeVisible();
 });
