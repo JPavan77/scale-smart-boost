@@ -1,6 +1,6 @@
 import { test, expect } from "@playwright/test";
 
-test("homepage carrega e navega para a demo", async ({ page }) => {
+test("homepage carrega e navega para catálogo real", async ({ page }) => {
   await page.goto("/");
   await expect(page.getByRole("heading", { name: /Seu negócio local com cara de marca grande/i })).toBeVisible();
   await page.getByRole("link", { name: /Abrir catálogo demo/i }).click();
@@ -8,7 +8,7 @@ test("homepage carrega e navega para a demo", async ({ page }) => {
   await expect(page.getByText("Corte clássico")).toBeVisible();
 });
 
-test("catálogo adiciona item e atualiza carrinho desktop", async ({ page }) => {
+test("catálogo real adiciona item ao carrinho", async ({ page }) => {
   await page.goto("/barbearia-do-ze");
   const product = page.locator(".product").filter({ hasText: "Corte clássico" });
   await expect(product).toBeVisible();
@@ -26,39 +26,29 @@ test("carrinho persiste por empresa", async ({ page }) => {
   const product = page.locator(".product").filter({ hasText: "Barba completa" });
   await product.getByRole("button", { name: /Adicionar Barba completa/i }).click();
   await page.reload();
-
   const cart = page.locator("aside.cart").first();
   await expect(cart.getByText("Barba completa")).toBeVisible();
 });
 
-test("login demo permite acessar painel", async ({ page }) => {
+test("login real carrega", async ({ page }) => {
   await page.goto("/auth");
   await expect(page.getByRole("heading", { name: /Entre no seu painel/i })).toBeVisible();
-  await page.getByRole("button", { name: /^Entrar$/i }).click();
-  await expect(page).toHaveURL(/painel/);
-  await expect(page.getByRole("heading", { name: /Seu catálogo/i })).toBeVisible();
+  await expect(page.getByText(/Use o email vinculado à sua empresa/i)).toBeVisible();
 });
 
-test("painel do dono exibe dados e abre cadastro de item", async ({ page }) => {
+test("painel exige autenticação", async ({ page }) => {
   await page.goto("/painel");
-  await expect(page.getByRole("heading", { name: /Seu catálogo/i })).toBeVisible();
-  await expect(page.getByText("Corte clássico")).toBeVisible();
-  await page.getByRole("button", { name: /Novo item/i }).click();
-  await expect(page.getByText("Item do catálogo")).toBeVisible();
-  await expect(page.getByLabel("Nome")).toBeVisible();
+  await expect(page).toHaveURL(/auth/);
+  await expect(page.getByRole("heading", { name: /Entre no seu painel/i })).toBeVisible();
 });
 
-test("admin abre e permite iniciar cadastro de empresa", async ({ page }) => {
+test("admin exige autenticação", async ({ page }) => {
   await page.goto("/admin");
-  await expect(page.getByRole("heading", { name: /^Empresas$/i })).toBeVisible();
-  await expect(page.getByText("Barbearia do Zé")).toBeVisible();
-  await page.getByRole("button", { name: /Criar empresa/i }).click();
-  await expect(page.getByText(/Cadastro da empresa/i)).toBeVisible();
-  await expect(page.getByLabel("Nome")).toBeVisible();
-  await expect(page.getByLabel(/Link/)).toBeVisible();
+  await expect(page).toHaveURL(/auth/);
+  await expect(page.getByRole("heading", { name: /Entre no seu painel/i })).toBeVisible();
 });
 
-test("rota inexistente mostra catálogo indisponível", async ({ page }) => {
+test("empresa inexistente não vaza catálogo", async ({ page }) => {
   await page.goto("/empresa-que-nao-existe");
   await expect(page.getByRole("heading", { name: /Catálogo temporariamente indisponível/i })).toBeVisible();
 });
