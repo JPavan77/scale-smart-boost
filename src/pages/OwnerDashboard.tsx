@@ -25,33 +25,35 @@ export function OwnerDashboard(){
  const [categoryName,setCategoryName]=useState("");
  const [uploading,setUploading]=useState(false);
 
+ async function loadBusinessData(target:Business|null){
+   setBusiness(target);
+   if(target){
+     const data=await getCatalogAdminData(target.id);
+     setCategories(data.categories);
+     setItems(data.items);
+   }else{
+     setCategories([]);
+     setItems([]);
+   }
+ }
+
  async function refresh(){
    try{
      setLoading(true);
      setError("");
-     let owned:Business|null=null;
 
      if(auth.isSuperAdmin){
        const all=await getBusinesses();
        setManagedBusinesses(all);
-       owned=all.find(b=>b.id===selectedBusinessId)??all[0]??null;
-       if(owned && owned.id!==selectedBusinessId){
-         setSelectedBusinessId(owned.id);
-         try{localStorage.setItem(ADMIN_BUSINESS_KEY,owned.id);}catch{}
+       const target=all.find(b=>b.id===selectedBusinessId)??all[0]??null;
+       if(target && target.id!==selectedBusinessId){
+         setSelectedBusinessId(target.id);
+         try{localStorage.setItem(ADMIN_BUSINESS_KEY,target.id);}catch{}
        }
+       await loadBusinessData(target);
      }else{
        setManagedBusinesses([]);
-       owned=await getOwnedBusiness(auth.businessIds);
-     }
-
-     setBusiness(owned);
-     if(owned){
-       const data=await getCatalogAdminData(owned.id);
-       setCategories(data.categories);
-       setItems(data.items);
-     }else{
-       setCategories([]);
-       setItems([]);
+       await loadBusinessData(await getOwnedBusiness(auth.businessIds));
      }
    }catch(err:any){
      setError(err?.message||"Não foi possível carregar o painel.");
@@ -60,11 +62,22 @@ export function OwnerDashboard(){
    }
  }
 
- useEffect(()=>{refresh();},[auth.businessIds.join(","),auth.isSuperAdmin,selectedBusinessId]);
+ useEffect(()=>{refresh();},[auth.businessIds.join(","),auth.isSuperAdmin]);
 
- function selectBusiness(id:string){
+ async function selectBusiness(id:string){
+   if(id===selectedBusinessId)return;
    setSelectedBusinessId(id);
    try{localStorage.setItem(ADMIN_BUSINESS_KEY,id);}catch{}
+   const target=managedBusinesses.find(b=>b.id===id)??null;
+   try{
+     setLoading(true);
+     setError("");
+     await loadBusinessData(target);
+   }catch(err:any){
+     setError(err?.message||"Não foi possível carregar a empresa selecionada.");
+   }finally{
+     setLoading(false);
+   }
  }
 
  const activeCount=items.filter(i=>i.is_active).length;
