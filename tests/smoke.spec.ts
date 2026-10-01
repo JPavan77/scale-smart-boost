@@ -64,30 +64,33 @@ test("item sob consulta usa total parcial", async ({ page }) => {
   await expect(cart.getByText(/valor sob consulta/i)).toBeVisible();
 });
 
-test("mensagem do WhatsApp contém itens, duração e total", async ({ page, context }) => {
+test("mensagem do WhatsApp contém itens, duração e total", async ({ page }) => {
   await page.goto("/barbearia-do-ze");
+
+  await page.evaluate(() => {
+    (window as any).__openedUrl = "";
+    window.open = ((url?: string | URL) => {
+      (window as any).__openedUrl = String(url ?? "");
+      return null;
+    }) as typeof window.open;
+  });
+
   const product = page.locator(".product").filter({ hasText: "Barba completa" });
   await product.getByRole("button", { name: /Adicionar Barba completa/i }).click();
 
   const cart = page.locator("aside.cart").first();
-  const popupPromise = context.waitForEvent("page");
   await cart.getByRole("button", { name: /Enviar pelo WhatsApp/i }).click();
-  const popup = await popupPromise;
-  await popup.waitForLoadState("domcontentloaded").catch(() => {});
 
-  const url = new URL(popup.url());
-  expect(["wa.me", "api.whatsapp.com"]).toContain(url.hostname);
+  const openedUrl = await page.evaluate(() => (window as any).__openedUrl as string);
+  const url = new URL(openedUrl);
 
-  const phone = url.hostname === "wa.me"
-    ? url.pathname.replace(/^\//, "")
-    : url.searchParams.get("phone");
+  expect(url.hostname).toBe("wa.me");
+  expect(url.pathname.replace(/^\//, "")).toBe("5511999999999");
+
   const text = url.searchParams.get("text") ?? "";
-
-  expect(phone).toBe("5511999999999");
   expect(text).toContain("Barba completa");
   expect(text).toContain("30 min");
   expect(text).toContain("R$ 35,00");
-  await popup.close();
 });
 
 test("login real carrega", async ({ page }) => {
