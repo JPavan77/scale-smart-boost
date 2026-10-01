@@ -34,8 +34,7 @@ create table public.items (
   duration_minutes integer,
   image_url text,
   is_active boolean not null default true,
-  sort_order integer not null default 0,
-  created_at timestamptz not null default now()
+  sort_order integer not null default 0
 );
 
 create table public.item_variants (
@@ -69,39 +68,17 @@ alter table public.item_variants enable row level security;
 alter table public.business_members enable row level security;
 alter table public.user_roles enable row level security;
 
-create policy "public reads active businesses" on public.businesses
-for select using (
-  is_active
-  or public.has_role(auth.uid(),'super_admin')
-  or exists(select 1 from public.business_members bm where bm.business_id=id and bm.user_id=auth.uid())
-);
+create policy "public active businesses" on public.businesses for select using (is_active);
+create policy "public active items" on public.items for select using (is_active and exists(select 1 from public.businesses b where b.id=business_id and b.is_active));
+create policy "public categories" on public.categories for select using (exists(select 1 from public.businesses b where b.id=business_id and b.is_active));
+create policy "public variants" on public.item_variants for select using (exists(select 1 from public.items i join public.businesses b on b.id=i.business_id where i.id=item_id and i.is_active and b.is_active));
 
-create policy "public reads categories for active businesses" on public.categories
-for select using (exists(select 1 from public.businesses b where b.id=business_id and b.is_active));
-
-create policy "public reads active items" on public.items
-for select using (
-  is_active and exists(select 1 from public.businesses b where b.id=business_id and b.is_active)
-);
-
-create policy "public reads variants for active items" on public.item_variants
-for select using (
-  exists(
-    select 1
-    from public.items i
-    join public.businesses b on b.id=i.business_id
-    where i.id=item_id and i.is_active and b.is_active
-  )
-);
-
-create policy "members update own business" on public.businesses
-for update using (
+create policy "member business update" on public.businesses for update using (
   exists(select 1 from public.business_members bm where bm.business_id=id and bm.user_id=auth.uid())
   or public.has_role(auth.uid(),'super_admin')
 );
 
-create policy "members manage categories" on public.categories
-for all using (
+create policy "member categories" on public.categories for all using (
   exists(select 1 from public.business_members bm where bm.business_id=business_id and bm.user_id=auth.uid())
   or public.has_role(auth.uid(),'super_admin')
 ) with check (
@@ -109,8 +86,7 @@ for all using (
   or public.has_role(auth.uid(),'super_admin')
 );
 
-create policy "members manage items" on public.items
-for all using (
+create policy "member items" on public.items for all using (
   exists(select 1 from public.business_members bm where bm.business_id=business_id and bm.user_id=auth.uid())
   or public.has_role(auth.uid(),'super_admin')
 ) with check (
@@ -118,52 +94,20 @@ for all using (
   or public.has_role(auth.uid(),'super_admin')
 );
 
-create policy "members manage variants" on public.item_variants
-for all using (
-  exists(
-    select 1 from public.items i
-    join public.business_members bm on bm.business_id=i.business_id
-    where i.id=item_id and bm.user_id=auth.uid()
-  )
+create policy "member variants" on public.item_variants for all using (
+  exists(select 1 from public.items i join public.business_members bm on bm.business_id=i.business_id where i.id=item_id and bm.user_id=auth.uid())
   or public.has_role(auth.uid(),'super_admin')
 ) with check (
-  exists(
-    select 1 from public.items i
-    join public.business_members bm on bm.business_id=i.business_id
-    where i.id=item_id and bm.user_id=auth.uid()
-  )
+  exists(select 1 from public.items i join public.business_members bm on bm.business_id=i.business_id where i.id=item_id and bm.user_id=auth.uid())
   or public.has_role(auth.uid(),'super_admin')
 );
 
-create policy "super admin businesses" on public.businesses
-for all using (public.has_role(auth.uid(),'super_admin'))
-with check (public.has_role(auth.uid(),'super_admin'));
+create policy "admin businesses" on public.businesses for all using (public.has_role(auth.uid(),'super_admin')) with check (public.has_role(auth.uid(),'super_admin'));
+create policy "admin members" on public.business_members for all using (public.has_role(auth.uid(),'super_admin')) with check (public.has_role(auth.uid(),'super_admin'));
+create policy "own memberships" on public.business_members for select using (user_id=auth.uid() or public.has_role(auth.uid(),'super_admin'));
+create policy "own roles" on public.user_roles for select using (user_id=auth.uid() or public.has_role(auth.uid(),'super_admin'));
 
-create policy "super admin members" on public.business_members
-for all using (public.has_role(auth.uid(),'super_admin'))
-with check (public.has_role(auth.uid(),'super_admin'));
+insert into storage.buckets(id,name,public) values('catalog-images','catalog-images',true) on conflict (id) do nothing;
 
-create policy "users read own membership" on public.business_members
-for select using (user_id=auth.uid() or public.has_role(auth.uid(),'super_admin'));
-
-create policy "roles own read" on public.user_roles
-for select using (user_id=auth.uid() or public.has_role(auth.uid(),'super_admin'));
-
-insert into storage.buckets(id,name,public)
-values('catalog-images','catalog-images',true)
-on conflict (id) do nothing;
-
-insert into public.businesses(
-  slug,name,subtitle,description,primary_color,accent_color,type,whatsapp,business_hours,is_active
-) values (
-  'barbearia-do-ze',
-  'Barbearia do Zé',
-  'Cortes, barba e cuidado sem enrolação.',
-  'Atendimento de bairro com acabamento de respeito. Escolha seu serviço e mande o pedido pelo WhatsApp.',
-  '#294a41',
-  '#f4c96b',
-  'services',
-  '5511999999999',
-  'Hoje até 19h',
-  true
-);
+insert into public.businesses(slug,name,subtitle,description,primary_color,accent_color,type,whatsapp,business_hours,is_active)
+values('barbearia-do-ze','Barbearia do Zé','Cortes, barba e cuidado sem enrolação.','Atendimento de bairro com acabamento de respeito. Escolha seu serviço e envie o pedido pelo WhatsApp.','#294a41','#f4c96b','services','5511999999999','Hoje até 19h',true);
