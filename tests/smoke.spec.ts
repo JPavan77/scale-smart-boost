@@ -87,7 +87,7 @@ test("mensagem do WhatsApp contém itens, duração e total", async ({ page }) =
   expect(url.hostname).toBe("wa.me");
   expect(url.pathname.replace(/^\//, "")).toBe("5511999999999");
 
-  const text = url.searchParams.get("text") ?? "";
+  const text = (url.searchParams.get("text") ?? "").replace(/\u00a0/g, " ");
   expect(text).toContain("Barba completa");
   expect(text).toContain("30 min");
   expect(text).toContain("R$ 35,00");
