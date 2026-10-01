@@ -1,4 +1,4 @@
-import { defineConfig, devices } from "@playwright/test";
+import { defineConfig } from "@playwright/test";
 
 export default defineConfig({
   testDir: "./tests",
@@ -8,6 +8,7 @@ export default defineConfig({
     baseURL: "http://127.0.0.1:4173",
     trace: "retain-on-failure",
     screenshot: "only-on-failure",
+    channel: "chrome",
   },
   webServer: {
     command: "npm run preview -- --host 127.0.0.1",
@@ -15,7 +16,5 @@ export default defineConfig({
     reuseExistingServer: true,
     timeout: 30_000,
   },
-  projects: [
-    { name: "chromium", use: { ...devices["Desktop Chrome"] } },
-  ],
+  projects: [{ name: "chrome" }],
 });
