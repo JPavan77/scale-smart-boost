@@ -150,7 +150,7 @@ returns trigger
 language plpgsql
 security definer
 set search_path=public
-as $
+as $fn$
 begin
   if public.has_role(auth.uid(),'super_admin') then
     return new;
@@ -169,7 +169,7 @@ begin
 
   return new;
 end
-$;
+$fn$;
 
 create trigger protect_business_admin_fields_before_update
 before update on public.businesses
