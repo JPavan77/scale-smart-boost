@@ -4,6 +4,7 @@ import { DashboardShell } from "../components/DashboardShell";
 import { useAuth } from "../context/AuthContext";
 import { cloudConfigured, deleteCategory, deleteItem, getCatalogAdminData, getOwnedBusiness, saveBusiness, saveCategory, saveItem, uploadCatalogImage } from "../lib/api";
 import { money } from "../lib/format";
+import { appHref } from "../lib/navigation";
 import type { Business, Category, CatalogItem } from "../lib/types";
 type ItemDraft = { id?:string; name:string; description:string; price:string; duration:string; category_id:string; image_url:string; is_active:boolean; variants:string };
 const blankItem:ItemDraft={name:"",description:"",price:"",duration:"",category_id:"",image_url:"",is_active:true,variants:""};
@@ -22,7 +23,7 @@ export function OwnerDashboard(){
  async function removeItem(id:string){if(!confirm("Excluir este item?"))return;try{await deleteItem(id);await refresh();}catch(err:any){setError(err?.message||"Erro ao excluir item.");}}
  if(loading)return <DashboardShell title="Seu catálogo" eyebrow="Painel"><div className="panel loading-panel">Carregando...</div></DashboardShell>;
  if(!business)return <DashboardShell title="Sem empresa vinculada" eyebrow="Painel"><div className="panel"><h2>Nenhuma empresa encontrada</h2><p className="muted">{cloudConfigured?"Seu usuário ainda não está ligado a uma empresa. Peça ao super admin para enviar o convite correto.":"No modo demo isso não deveria acontecer."}</p></div></DashboardShell>;
- return <DashboardShell title="Seu catálogo" eyebrow={business.name} action={<a className="btn ghost" href={"/"+business.slug} target="_blank">Ver catálogo</a>}>
+ return <DashboardShell title="Seu catálogo" eyebrow={business.name} action={<a className="btn ghost" href={appHref("/"+business.slug)} target="_blank">Ver catálogo</a>}>
  {error&&<div className="alert error">{error}<button onClick={()=>setError("")}>×</button></div>}{notice&&<div className="alert success">{notice}<button onClick={()=>setNotice("")}>×</button></div>}
  <div className="stats"><div><span>Itens</span><strong>{items.length}</strong></div><div><span>Ativos</span><strong>{activeCount}</strong></div><div><span>Categorias</span><strong>{categories.length}</strong></div></div>
  <div className="dashboard-grid"><section className="panel"><div className="panel-head"><div><h2>Dados da empresa</h2><p className="muted">Essas informações aparecem no catálogo público.</p></div></div><form className="stack-form" onSubmit={saveCompany}><div className="form-grid"><label>WhatsApp<input value={business.whatsapp||""} onChange={e=>setBusiness({...business,whatsapp:e.target.value})} placeholder="5511999999999"/></label><label>Horário/status<input value={business.business_hours||""} onChange={e=>setBusiness({...business,business_hours:e.target.value})} placeholder="Hoje até 19h"/></label><label className="span-2">Descrição<textarea value={business.description||""} onChange={e=>setBusiness({...business,description:e.target.value})}/></label></div><button className="btn dark"><Save size={16}/> Salvar empresa</button></form></section>
