@@ -6,7 +6,7 @@ import { CatalogPage } from "./pages/CatalogPage";
 import { AuthPage } from "./pages/AuthPage";
 import { OwnerDashboard } from "./pages/OwnerDashboard";
 import { AdminDashboard } from "./pages/AdminDashboard";
-import { currentAppPath, navigate } from "./lib/navigation";
+import { appBase, appHref, currentAppPath, navigate } from "./lib/navigation";
 
 function Loading(){ return <main className="center-screen"><div className="loader"/><p>Carregando...</p></main>; }
 
@@ -29,6 +29,10 @@ export function App(){
   const [path,setPath]=useState(currentAppPath());
 
   useEffect(()=>{
+    if(appBase && !window.location.hash.startsWith("#/") && path!=="/"){
+      window.history.replaceState(null,"",appHref(path));
+    }
+
     const sync=()=>setPath(currentAppPath());
     window.addEventListener("hashchange",sync);
     window.addEventListener("popstate",sync);
