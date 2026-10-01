@@ -88,7 +88,46 @@ export function OwnerDashboard(){
  async function removeCategory(id:string){if(!confirm("Excluir esta categoria? Os itens ficarão sem categoria."))return;try{await deleteCategory(id);await refresh();}catch(err:any){setError(err?.message||"Erro ao excluir categoria.");}}
  function editItem(item:CatalogItem){setItemDraft({id:item.id,name:item.name,description:item.description||"",price:item.price?.toString()||"",duration:item.duration_minutes?.toString()||"",category_id:item.category_id||"",image_url:item.image_url||"",is_active:item.is_active,variants:(item.variants||[]).map(v=>v.name+(v.price!=null?"="+v.price:"")).join("\n")});}
  async function handleImage(file?:File){if(!file||!business||!itemDraft)return;try{setUploading(true);const url=await uploadCatalogImage(file,business.id);setItemDraft({...itemDraft,image_url:url});}catch(err:any){setError(err?.message||"Erro ao enviar imagem.");}finally{setUploading(false);}}
- async function submitItem(e:FormEvent){e.preventDefault();if(!business||!itemDraft)return;const variants=itemDraft.variants.split("\n").map(v=>v.trim()).filter(Boolean).map(line=>{const [name,price]=line.split("=");return{name:name.trim(),price:price?.trim()?Number(price.replace(",",".")):null};}).filter(v=>v.name);try{await saveItem({id:itemDraft.id,business_id:business.id,name:itemDraft.name,description:itemDraft.description||null,price:itemDraft.price?Number(itemDraft.price.replace(",",".")):null,duration_minutes:itemDraft.duration?Number(itemDraft.duration):null,category_id:itemDraft.category_id||null,image_url:itemDraft.image_url||null,is_active:itemDraft.is_active,sort_order:itemDraft.id?items.find(i=>i.id===itemDraft.id)?.sort_order??items.length+1:items.length+1},variants);setItemDraft(null);setNotice("Item salvo.");await refresh();}catch(err:any){setError(err?.message||"Erro ao salvar item.");}}
+ async function submitItem(e:FormEvent){
+   e.preventDefault();
+   if(!business||!itemDraft)return;
+
+   const itemPrice=itemDraft.price.trim()?Number(itemDraft.price.replace(",",".")):null;
+   const duration=itemDraft.duration.trim()?Number(itemDraft.duration):null;
+   if(itemPrice!=null&&(!Number.isFinite(itemPrice)||itemPrice<0)){setError("Informe um preço válido ou deixe em branco para sob consulta.");return;}
+   if(duration!=null&&(!Number.isInteger(duration)||duration<0)){setError("Informe uma duração válida em minutos.");return;}
+
+   const variants=[];
+   for(const line of itemDraft.variants.split("\n").map(v=>v.trim()).filter(Boolean)){
+     const [rawName,rawPrice]=line.split("=");
+     const name=rawName.trim();
+     if(!name)continue;
+     let price:number|null=null;
+     if(rawPrice?.trim()){
+       price=Number(rawPrice.replace(",","."));
+       if(!Number.isFinite(price)||price<0){setError("Preço inválido na variação: "+name);return;}
+     }
+     variants.push({name,price});
+   }
+
+   try{
+     await saveItem({
+       id:itemDraft.id,
+       business_id:business.id,
+       name:itemDraft.name,
+       description:itemDraft.description||null,
+       price:itemPrice,
+       duration_minutes:duration,
+       category_id:itemDraft.category_id||null,
+       image_url:itemDraft.image_url||null,
+       is_active:itemDraft.is_active,
+       sort_order:itemDraft.id?items.find(i=>i.id===itemDraft.id)?.sort_order??items.length+1:items.length+1
+     },variants);
+     setItemDraft(null);
+     setNotice("Item salvo.");
+     await refresh();
+   }catch(err:any){setError(err?.message||"Erro ao salvar item.");}
+ }
  async function removeItem(id:string){if(!confirm("Excluir este item?"))return;try{await deleteItem(id);await refresh();}catch(err:any){setError(err?.message||"Erro ao excluir item.");}}
 
  if(loading)return <DashboardShell title="Seu catálogo" eyebrow="Painel"><div className="panel loading-panel">Carregando...</div></DashboardShell>;
