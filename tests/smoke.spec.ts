@@ -75,12 +75,18 @@ test("mensagem do WhatsApp contém itens, duração e total", async ({ page, con
   const popup = await popupPromise;
   await popup.waitForLoadState("domcontentloaded").catch(() => {});
 
-  const url = popup.url();
-  expect(url).toContain("wa.me/5511999999999");
-  const decoded = decodeURIComponent(url);
-  expect(decoded).toContain("Barba completa");
-  expect(decoded).toContain("30 min");
-  expect(decoded).toContain("R$");
+  const url = new URL(popup.url());
+  expect(["wa.me", "api.whatsapp.com"]).toContain(url.hostname);
+
+  const phone = url.hostname === "wa.me"
+    ? url.pathname.replace(/^\//, "")
+    : url.searchParams.get("phone");
+  const text = url.searchParams.get("text") ?? "";
+
+  expect(phone).toBe("5511999999999");
+  expect(text).toContain("Barba completa");
+  expect(text).toContain("30 min");
+  expect(text).toContain("R$ 35,00");
   await popup.close();
 });
 
