@@ -2,18 +2,74 @@ import { useEffect, useMemo, useState, type FormEvent } from "react";
 import { ImagePlus, Pencil, Plus, Save, Trash2, X } from "lucide-react";
 import { DashboardShell } from "../components/DashboardShell";
 import { useAuth } from "../context/AuthContext";
-import { cloudConfigured, deleteCategory, deleteItem, getCatalogAdminData, getOwnedBusiness, saveBusiness, saveCategory, saveItem, uploadCatalogImage } from "../lib/api";
+import { cloudConfigured, deleteCategory, deleteItem, getBusinesses, getCatalogAdminData, getOwnedBusiness, saveBusiness, saveCategory, saveItem, uploadCatalogImage } from "../lib/api";
 import { money } from "../lib/format";
 import { appHref } from "../lib/navigation";
 import type { Business, Category, CatalogItem } from "../lib/types";
+
 type ItemDraft = { id?:string; name:string; description:string; price:string; duration:string; category_id:string; image_url:string; is_active:boolean; variants:string };
 const blankItem:ItemDraft={name:"",description:"",price:"",duration:"",category_id:"",image_url:"",is_active:true,variants:""};
+const ADMIN_BUSINESS_KEY="vitrine-admin-business";
+
 export function OwnerDashboard(){
- const auth=useAuth(); const [business,setBusiness]=useState<Business|null>(null); const [categories,setCategories]=useState<Category[]>([]); const [items,setItems]=useState<CatalogItem[]>([]); const [loading,setLoading]=useState(true); const [error,setError]=useState(""); const [notice,setNotice]=useState(""); const [itemDraft,setItemDraft]=useState<ItemDraft|null>(null); const [categoryName,setCategoryName]=useState(""); const [uploading,setUploading]=useState(false);
- async function refresh(){ try{setLoading(true);setError("");const owned=await getOwnedBusiness(auth.businessIds);setBusiness(owned);if(owned){const data=await getCatalogAdminData(owned.id);setCategories(data.categories);setItems(data.items);}else{setCategories([]);setItems([]);} }catch(err:any){setError(err?.message||"Não foi possível carregar o painel.");}finally{setLoading(false);} }
- useEffect(()=>{refresh();},[auth.businessIds.join(",")]);
+ const auth=useAuth();
+ const [business,setBusiness]=useState<Business|null>(null);
+ const [managedBusinesses,setManagedBusinesses]=useState<Business[]>([]);
+ const [selectedBusinessId,setSelectedBusinessId]=useState(()=>{try{return localStorage.getItem(ADMIN_BUSINESS_KEY)||"";}catch{return "";}});
+ const [categories,setCategories]=useState<Category[]>([]);
+ const [items,setItems]=useState<CatalogItem[]>([]);
+ const [loading,setLoading]=useState(true);
+ const [error,setError]=useState("");
+ const [notice,setNotice]=useState("");
+ const [itemDraft,setItemDraft]=useState<ItemDraft|null>(null);
+ const [categoryName,setCategoryName]=useState("");
+ const [uploading,setUploading]=useState(false);
+
+ async function refresh(){
+   try{
+     setLoading(true);
+     setError("");
+     let owned:Business|null=null;
+
+     if(auth.isSuperAdmin){
+       const all=await getBusinesses();
+       setManagedBusinesses(all);
+       owned=all.find(b=>b.id===selectedBusinessId)??all[0]??null;
+       if(owned && owned.id!==selectedBusinessId){
+         setSelectedBusinessId(owned.id);
+         try{localStorage.setItem(ADMIN_BUSINESS_KEY,owned.id);}catch{}
+       }
+     }else{
+       setManagedBusinesses([]);
+       owned=await getOwnedBusiness(auth.businessIds);
+     }
+
+     setBusiness(owned);
+     if(owned){
+       const data=await getCatalogAdminData(owned.id);
+       setCategories(data.categories);
+       setItems(data.items);
+     }else{
+       setCategories([]);
+       setItems([]);
+     }
+   }catch(err:any){
+     setError(err?.message||"Não foi possível carregar o painel.");
+   }finally{
+     setLoading(false);
+   }
+ }
+
+ useEffect(()=>{refresh();},[auth.businessIds.join(","),auth.isSuperAdmin,selectedBusinessId]);
+
+ function selectBusiness(id:string){
+   setSelectedBusinessId(id);
+   try{localStorage.setItem(ADMIN_BUSINESS_KEY,id);}catch{}
+ }
+
  const activeCount=items.filter(i=>i.is_active).length;
  const sortedCategories=useMemo(()=>[...categories].sort((a,b)=>a.sort_order-b.sort_order),[categories]);
+
  async function saveCompany(e:FormEvent<HTMLFormElement>){e.preventDefault();if(!business)return;try{const updated=await saveBusiness({...business,name:business.name,slug:business.slug});setBusiness(updated as Business);setNotice("Dados da empresa salvos.");}catch(err:any){setError(err?.message||"Erro ao salvar empresa.");}}
  async function addCategory(e:FormEvent){e.preventDefault();if(!business||!categoryName.trim())return;try{await saveCategory({business_id:business.id,name:categoryName.trim(),sort_order:categories.length+1});setCategoryName("");await refresh();}catch(err:any){setError(err?.message||"Erro ao criar categoria.");}}
  async function removeCategory(id:string){if(!confirm("Excluir esta categoria? Os itens ficarão sem categoria."))return;try{await deleteCategory(id);await refresh();}catch(err:any){setError(err?.message||"Erro ao excluir categoria.");}}
@@ -21,14 +77,24 @@ export function OwnerDashboard(){
  async function handleImage(file?:File){if(!file||!business||!itemDraft)return;try{setUploading(true);const url=await uploadCatalogImage(file,business.id);setItemDraft({...itemDraft,image_url:url});}catch(err:any){setError(err?.message||"Erro ao enviar imagem.");}finally{setUploading(false);}}
  async function submitItem(e:FormEvent){e.preventDefault();if(!business||!itemDraft)return;const variants=itemDraft.variants.split("\n").map(v=>v.trim()).filter(Boolean).map(line=>{const [name,price]=line.split("=");return{name:name.trim(),price:price?.trim()?Number(price.replace(",",".")):null};}).filter(v=>v.name);try{await saveItem({id:itemDraft.id,business_id:business.id,name:itemDraft.name,description:itemDraft.description||null,price:itemDraft.price?Number(itemDraft.price.replace(",",".")):null,duration_minutes:itemDraft.duration?Number(itemDraft.duration):null,category_id:itemDraft.category_id||null,image_url:itemDraft.image_url||null,is_active:itemDraft.is_active,sort_order:itemDraft.id?items.find(i=>i.id===itemDraft.id)?.sort_order??items.length+1:items.length+1},variants);setItemDraft(null);setNotice("Item salvo.");await refresh();}catch(err:any){setError(err?.message||"Erro ao salvar item.");}}
  async function removeItem(id:string){if(!confirm("Excluir este item?"))return;try{await deleteItem(id);await refresh();}catch(err:any){setError(err?.message||"Erro ao excluir item.");}}
+
  if(loading)return <DashboardShell title="Seu catálogo" eyebrow="Painel"><div className="panel loading-panel">Carregando...</div></DashboardShell>;
- if(!business)return <DashboardShell title="Sem empresa vinculada" eyebrow="Painel"><div className="panel"><h2>Nenhuma empresa encontrada</h2><p className="muted">{cloudConfigured?"Seu usuário ainda não está ligado a uma empresa. Peça ao super admin para enviar o convite correto.":"No modo demo isso não deveria acontecer."}</p></div></DashboardShell>;
- return <DashboardShell title="Seu catálogo" eyebrow={business.name} action={<a className="btn ghost" href={appHref("/"+business.slug)} target="_blank">Ver catálogo</a>}>
+
+ if(!business)return <DashboardShell title="Sem empresa disponível" eyebrow="Painel">
+   <div className="panel"><h2>Nenhuma empresa encontrada</h2><p className="muted">{auth.isSuperAdmin?"Ainda não há empresas cadastradas. Crie a primeira empresa no Super admin.":cloudConfigured?"Seu usuário ainda não está ligado a uma empresa. Peça ao super admin para enviar o convite correto.":"No modo demo isso não deveria acontecer."}</p>{auth.isSuperAdmin&&<a className="btn dark" href={appHref("/admin")}>Ir para Super admin</a>}</div>
+ </DashboardShell>;
+
+ const selector=auth.isSuperAdmin&&managedBusinesses.length>0
+   ? <label className="business-selector">Empresa<select aria-label="Empresa gerenciada" value={business.id} onChange={e=>selectBusiness(e.target.value)}>{managedBusinesses.map(b=><option key={b.id} value={b.id}>{b.name}{b.is_active?"":" · pausada"}</option>)}</select></label>
+   : null;
+
+ return <DashboardShell title="Seu catálogo" eyebrow={auth.isSuperAdmin?"Gerenciamento de catálogo":business.name} catalogPath={"/"+business.slug} action={<div className="dash-actions">{selector}<a className="btn ghost" href={appHref("/"+business.slug)} target="_blank">Ver catálogo</a></div>}>
  {error&&<div className="alert error">{error}<button onClick={()=>setError("")}>×</button></div>}{notice&&<div className="alert success">{notice}<button onClick={()=>setNotice("")}>×</button></div>}
+ {auth.isSuperAdmin&&<div className="panel admin-context"><strong>Gerenciando: {business.name}</strong><span className="muted">Você está usando acesso total de super admin. O vínculo do dono da empresa não é alterado.</span></div>}
  <div className="stats"><div><span>Itens</span><strong>{items.length}</strong></div><div><span>Ativos</span><strong>{activeCount}</strong></div><div><span>Categorias</span><strong>{categories.length}</strong></div></div>
  <div className="dashboard-grid"><section className="panel"><div className="panel-head"><div><h2>Dados da empresa</h2><p className="muted">Essas informações aparecem no catálogo público.</p></div></div><form className="stack-form" onSubmit={saveCompany}><div className="form-grid"><label>WhatsApp<input value={business.whatsapp||""} onChange={e=>setBusiness({...business,whatsapp:e.target.value})} placeholder="5511999999999"/></label><label>Horário/status<input value={business.business_hours||""} onChange={e=>setBusiness({...business,business_hours:e.target.value})} placeholder="Hoje até 19h"/></label><label className="span-2">Descrição<textarea value={business.description||""} onChange={e=>setBusiness({...business,description:e.target.value})}/></label></div><button className="btn dark"><Save size={16}/> Salvar empresa</button></form></section>
- <section className="panel"><div className="panel-head"><div><h2>Categorias</h2><p className="muted">Organize os itens do catálogo.</p></div></div><form className="inline-form" onSubmit={addCategory}><input value={categoryName} onChange={e=>setCategoryName(e.target.value)} placeholder="Nova categoria"/><button className="btn dark"><Plus size={16}/> Adicionar</button></form><div className="category-list">{sortedCategories.map(cat=><div key={cat.id}><span>{cat.name}</span><button className="icon-btn danger" onClick={()=>removeCategory(cat.id)}><Trash2 size={15}/></button></div>)}</div></section></div>
- <section className="panel"><div className="panel-head"><div><h2>Itens do catálogo</h2><p className="muted">Produtos, serviços, preços, duração e variações.</p></div><button className="btn dark" onClick={()=>setItemDraft(blankItem)}><Plus size={16}/> Novo item</button></div><div className="table-wrap"><table><thead><tr><th>Item</th><th>Categoria</th><th>Preço</th><th>Duração</th><th>Status</th><th></th></tr></thead><tbody>{items.map(item=><tr key={item.id}><td><div className="item-cell">{item.image_url?<img src={item.image_url} alt=""/>:<span className="thumb-empty"/>}<strong>{item.name}</strong></div></td><td>{item.category?.name||"Sem categoria"}</td><td>{money(item.price)}</td><td>{item.duration_minutes?item.duration_minutes+" min":"—"}</td><td><span className={item.is_active?"badge":"badge off"}>{item.is_active?"Ativo":"Inativo"}</span></td><td><div className="row-actions"><button className="icon-btn" onClick={()=>editItem(item)}><Pencil size={15}/></button><button className="icon-btn danger" onClick={()=>removeItem(item.id)}><Trash2 size={15}/></button></div></td></tr>)}</tbody></table></div></section>
+ <section className="panel"><div className="panel-head"><div><h2>Categorias</h2><p className="muted">Organize os itens do catálogo.</p></div></div><form className="inline-form" onSubmit={addCategory}><input value={categoryName} onChange={e=>setCategoryName(e.target.value)} placeholder="Nova categoria"/><button className="btn dark"><Plus size={16}/> Adicionar</button></form><div className="category-list">{sortedCategories.map(cat=><div key={cat.id}><span>{cat.name}</span><button className="icon-btn danger" onClick={()=>removeCategory(cat.id)} aria-label={"Excluir categoria "+cat.name}><Trash2 size={15}/></button></div>)}</div></section></div>
+ <section className="panel"><div className="panel-head"><div><h2>Itens do catálogo</h2><p className="muted">Produtos, serviços, preços, duração e variações.</p></div><button className="btn dark" onClick={()=>setItemDraft(blankItem)}><Plus size={16}/> Novo item</button></div><div className="table-wrap"><table><thead><tr><th>Item</th><th>Categoria</th><th>Preço</th><th>Duração</th><th>Status</th><th></th></tr></thead><tbody>{items.map(item=><tr key={item.id}><td><div className="item-cell">{item.image_url?<img src={item.image_url} alt=""/>:<span className="thumb-empty"/>}<strong>{item.name}</strong></div></td><td>{item.category?.name||"Sem categoria"}</td><td>{money(item.price)}</td><td>{item.duration_minutes?item.duration_minutes+" min":"—"}</td><td><span className={item.is_active?"badge":"badge off"}>{item.is_active?"Ativo":"Inativo"}</span></td><td><div className="row-actions"><button className="icon-btn" onClick={()=>editItem(item)} aria-label={"Editar "+item.name}><Pencil size={15}/></button><button className="icon-btn danger" onClick={()=>removeItem(item.id)} aria-label={"Excluir "+item.name}><Trash2 size={15}/></button></div></td></tr>)}</tbody></table></div></section>
  {itemDraft&&<div className="modal-backdrop" onClick={()=>setItemDraft(null)}><form className="modal" onSubmit={submitItem} onClick={e=>e.stopPropagation()}><div className="modal-head"><div><span className="eyebrow">{itemDraft.id?"Editar item":"Novo item"}</span><h2>{itemDraft.name||"Item do catálogo"}</h2></div><button type="button" className="icon-btn" onClick={()=>setItemDraft(null)}><X size={18}/></button></div><div className="form-grid"><label>Nome<input required value={itemDraft.name} onChange={e=>setItemDraft({...itemDraft,name:e.target.value})}/></label><label>Categoria<select value={itemDraft.category_id} onChange={e=>setItemDraft({...itemDraft,category_id:e.target.value})}><option value="">Sem categoria</option>{categories.map(cat=><option key={cat.id} value={cat.id}>{cat.name}</option>)}</select></label><label>Preço<input inputMode="decimal" value={itemDraft.price} onChange={e=>setItemDraft({...itemDraft,price:e.target.value})} placeholder="Deixe vazio para sob consulta"/></label><label>Duração (min)<input inputMode="numeric" value={itemDraft.duration} onChange={e=>setItemDraft({...itemDraft,duration:e.target.value})}/></label><label className="span-2">Descrição<textarea value={itemDraft.description} onChange={e=>setItemDraft({...itemDraft,description:e.target.value})}/></label><label className="span-2">Variações <small>Uma por linha. Ex.: Degradê=55</small><textarea value={itemDraft.variants} onChange={e=>setItemDraft({...itemDraft,variants:e.target.value})} placeholder={"Tradicional\nDegradê=55"}/></label><label className="span-2 upload-field"><span>Imagem</span>{itemDraft.image_url&&<img className="upload-preview" src={itemDraft.image_url} alt="Prévia"/>}<span className="btn ghost file-btn"><ImagePlus size={16}/>{uploading?"Enviando...":"Escolher imagem"}<input type="file" accept="image/*" disabled={uploading} onChange={e=>handleImage(e.target.files?.[0])}/></span></label><label className="check-row span-2"><input type="checkbox" checked={itemDraft.is_active} onChange={e=>setItemDraft({...itemDraft,is_active:e.target.checked})}/> Item ativo</label></div><div className="modal-actions"><button type="button" className="btn ghost" onClick={()=>setItemDraft(null)}>Cancelar</button><button className="btn dark"><Save size={16}/> Salvar item</button></div></form></div>}
  </DashboardShell>;
 }
