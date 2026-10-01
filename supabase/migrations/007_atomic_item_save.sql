@@ -1,4 +1,3 @@
--- Save an item and all of its variants atomically.
 create or replace function public.save_catalog_item(
   _id uuid,
   _business_id uuid,
@@ -17,7 +16,7 @@ language plpgsql
 set search_path=public
 as $fn$
 declare
-  item_id uuid;
+  v_item_id uuid;
 begin
   if _id is null then
     insert into public.items(
@@ -26,7 +25,7 @@ begin
     values(
       _business_id,_name,nullif(_description,''),_price,_duration_minutes,_category_id,nullif(_image_url,''),_is_active,_sort_order
     )
-    returning id into item_id;
+    returning id into v_item_id;
   else
     update public.items
     set
@@ -40,14 +39,15 @@ begin
       is_active=_is_active,
       sort_order=_sort_order
     where id=_id
-    returning id into item_id;
+    returning id into v_item_id;
 
-    if item_id is null then
+    if v_item_id is null then
       raise exception 'Item não encontrado ou sem permissão.';
     end if;
   end if;
 
-  delete from public.item_variants where item_id=save_catalog_item.item_id;
+  delete from public.item_variants iv
+  where iv.item_id=v_item_id;
 
   if jsonb_typeof(coalesce(_variants,'[]'::jsonb)) <> 'array' then
     raise exception 'Variações inválidas.';
@@ -55,13 +55,13 @@ begin
 
   insert into public.item_variants(item_id,name,price)
   select
-    save_catalog_item.item_id,
+    v_item_id,
     trim(v->>'name'),
     case when nullif(v->>'price','') is null then null else (v->>'price')::numeric end
   from jsonb_array_elements(coalesce(_variants,'[]'::jsonb)) v
   where trim(coalesce(v->>'name','')) <> '';
 
-  return item_id;
+  return v_item_id;
 end
 $fn$;
 
