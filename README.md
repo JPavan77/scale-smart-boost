@@ -51,3 +51,7 @@ npm run build
 npm run test:ui
 npm run test:e2e
 ```
+
+## GitHub Pages
+
+O projeto usa o domínio padrão do GitHub Pages, sem custom domain.
