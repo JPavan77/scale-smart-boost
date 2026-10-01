@@ -145,6 +145,36 @@ with check (
   or public.has_role(auth.uid(),'super_admin')
 );
 
+create or replace function public.protect_business_admin_fields()
+returns trigger
+language plpgsql
+security definer
+set search_path=public
+as $
+begin
+  if public.has_role(auth.uid(),'super_admin') then
+    return new;
+  end if;
+
+  if new.slug is distinct from old.slug
+    or new.name is distinct from old.name
+    or new.subtitle is distinct from old.subtitle
+    or new.primary_color is distinct from old.primary_color
+    or new.accent_color is distinct from old.accent_color
+    or new.logo_url is distinct from old.logo_url
+    or new.type is distinct from old.type
+    or new.is_active is distinct from old.is_active then
+    raise exception 'Somente o super admin pode alterar identidade, tipo, link ou status da empresa.';
+  end if;
+
+  return new;
+end
+$;
+
+create trigger protect_business_admin_fields_before_update
+before update on public.businesses
+for each row execute function public.protect_business_admin_fields();
+
 create policy "members read categories"
 on public.categories for select
 using (
