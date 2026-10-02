@@ -49,6 +49,7 @@ Deno.serve(async (req) => {
     let targetUserId: string | null = null;
     const inviteResult = await admin.auth.admin.inviteUserByEmail(email, {
       data: { business_id: businessId, business_name: business.name },
+      redirectTo: "https://jpavan77.github.io/scale-smart-boost/?invite=1",
     });
 
     if (!inviteResult.error && inviteResult.data.user) {
@@ -66,7 +67,13 @@ Deno.serve(async (req) => {
       .upsert({ user_id: targetUserId, business_id: businessId }, { onConflict: "user_id,business_id" });
     if (memberError) throw memberError;
 
-    return json({ ok: true, userId: targetUserId, businessId });
+    return json({
+      ok: true,
+      userId: targetUserId,
+      businessId,
+      invited: !inviteResult.error,
+      existingUser: Boolean(inviteResult.error),
+    });
   } catch (error) {
     console.error(error);
     return json({ error: error instanceof Error ? error.message : "Erro inesperado." }, 500);
